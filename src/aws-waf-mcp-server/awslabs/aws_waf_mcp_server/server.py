@@ -1,20 +1,53 @@
 import boto3
-from mcp.server.fastmcp import FastMCP
 import os
-# Initialize FastMCP server
-mcp = FastMCP("aws_waf")
+from mcp.server.fastmcp import FastMCP
+from typing import List, Optional
 
-session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'), region_name=os.getenv('AWS_DEAFULT_REGION'))
+
+# Initialize FastMCP server
+mcp = FastMCP('aws_waf')
+
+session = boto3.Session(
+    profile_name=os.getenv('AWS_PROFILE'), region_name=os.getenv('AWS_DEAFULT_REGION')
+)
 
 # clients
-wafv2_client = session.client('wafv2')
-elbv2_client = session.client('elbv2')
+
+global_wafv2_client = None
+
+
+def get_wafv2_client():
+    """Get a WAFv2 client for the specified region.
+
+    Returns:
+        boto3.client: WAFv2 client
+    """
+    session = boto3.Session(
+        profile_name=os.getenv('AWS_PROFILE'), region_name=os.getenv('AWS_DEAFULT_REGION')
+    )
+    return session.client('wafv2')
+
+
+global_elbv2_client = None
+
+
+def get_elbv2_client():
+    """Get a WAFv2 client for the specified region.
+
+    Returns:
+        boto3.client: WAFv2 client
+    """
+    session = boto3.Session(
+        profile_name=os.getenv('AWS_PROFILE'), region_name=os.getenv('AWS_DEAFULT_REGION')
+    )
+    return session.client('elbv2')
+
 
 @mcp.tool()
-async def create_waf_acl(name,json_rules_acl):
-    """
-    Creates a WAFv2 Web ACL (Web Application Firewall Access Control List) with specified rules.
-    When creating rules, follow these steps: 
+async def create_waf_acl(name, json_rules_acl, wafv2_client=None) -> dict:
+    """Creates a WAFv2 Web ACL (Web Application Firewall Access Control List) with specified rules.
+
+    When creating rules, follow these steps:
     Follow this steps
     1. Group rules into group rules as much as possible
     2. Follow this order in priority
@@ -41,11 +74,10 @@ async def create_waf_acl(name,json_rules_acl):
         json_rules_acl (list): A list of rule objects that define the security rules for the Web ACL.
                               Each rule should contain statements for matching web requests and actions
                               to take when requests match.
+        wafv2_client (boto3.client): Override the client for unit tests.
 
     Returns:
-        dict: AWS response containing the created Web ACL details including:
-              - WebACL: Contains the configuration of the created ACL
-              - Summary: Contains the WebACL ID, Name, and ARN
+        str: Response containing the result and the created Web ACL ARN if successful
 
     Raises:
         Exception: If there's an error during Web ACL creation, including:
@@ -75,10 +107,16 @@ async def create_waf_acl(name,json_rules_acl):
                 }
             }
         ]
-        
+
         response = await create_waf_acl('MyWebACL', rules)
     """
-    # Create WAFv2 client
+    # Init WAFv2 client
+    global global_wafv2_client
+    if wafv2_client is None:
+        if global_wafv2_client is None:
+            global_wafv2_client = get_wafv2_client()
+        wafv2_client = global_wafv2_client
+
     try:
         # Create Web ACL
         response = wafv2_client.create_web_acl(
@@ -92,20 +130,19 @@ async def create_waf_acl(name,json_rules_acl):
             VisibilityConfig={
                 'SampledRequestsEnabled': False,
                 'CloudWatchMetricsEnabled': True,
-                'MetricName': f'{name}Metric'
-            }
+                'MetricName': f'{name}Metric',
+            },
         )
-        
-        return f"Web ACL created. ARN is {response['Summary']['ARN']}"
-        
+
+        return f'Web ACL created. ARN is {response["Summary"]["ARN"]}'
+
     except Exception as e:
-        return f"Error creating Web ACL: {str(e)}"
-        
+        return f'Error creating Web ACL: {str(e)}'
+
 
 @mcp.tool()
-async def associate_web_acl_to_alb(web_acl_arn, alb_arn):
-    """
-    Associates an AWS WAF web ACL with an Application Load Balancer.
+async def associate_web_acl_to_alb(web_acl_arn, alb_arn, wafv2_client=None) -> dict:
+    """Associates an AWS WAF web ACL with an Application Load Balancer.
 
     This function creates a connection between a WAF web ACL and an ALB, enabling
     the web ACL to filter traffic going to the specified load balancer.
@@ -115,6 +152,7 @@ async def associate_web_acl_to_alb(web_acl_arn, alb_arn):
             Format: arn:aws:wafv2:region:account-id:regional/webacl/name/id
         alb_arn (str): The ARN of the Application Load Balancer.
             Format: arn:aws:elasticloadbalancing:region:account-id:loadbalancer/app/name/id
+        wafv2_client (boto3.client): Override the client. For unit tests only
 
     Returns:
         dict: The response from the AWS WAF service containing details of the association.
@@ -130,7 +168,7 @@ async def associate_web_acl_to_alb(web_acl_arn, alb_arn):
     Example:
         web_acl_arn = "arn:aws:wafv2:us-west-2:123456789012:regional/webacl/mywebacl/abcd1234"
         alb_arn = "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-alb/1234567890"
-        
+
         try:
             response = await associate_web_acl_to_alb(web_acl_arn, alb_arn)
             print("Web ACL successfully associated with ALB")
@@ -142,33 +180,32 @@ async def associate_web_acl_to_alb(web_acl_arn, alb_arn):
         - The web ACL and ALB must be in the same region
         - This operation requires appropriate IAM permissions for WAF and ELB services
     """
+    # Init WAFv2 client
+    global global_wafv2_client
+    if wafv2_client is None:
+        if global_wafv2_client is None:
+            global_wafv2_client = get_wafv2_client()
+        wafv2_client = global_wafv2_client
     try:
-        response = wafv2_client.associate_web_acl(
-            WebACLArn=web_acl_arn,
-            ResourceArn=alb_arn
-        )
-        return response
+        wafv2_client.associate_web_acl(WebACLArn=web_acl_arn, ResourceArn=alb_arn)
+        return 'Web ACL associated'
     except Exception as e:
-        print(f"Error associating Web ACL: {str(e)}")
-        raise
+        return f'Error associating Web ACL: {str(e)}'
+
 
 @mcp.tool()
-async def get_application_load_balancer_arn_by_name(alb_name):
-    """
-    Retrieves the Amazon Resource Name (ARN) of an Application Load Balancer by its name.
+async def get_application_load_balancer_arn_by_name(alb_name, elbv2_client=None) -> str:
+    """Retrieves the Amazon Resource Name (ARN) of an Application Load Balancer by its name.
 
     Args:
         alb_name (str): The name of the Application Load Balancer to look up.
             Must be the exact name as it appears in AWS.
+        elbv2_client (boto3.client): Override the client. For unit tests only
 
     Returns:
         str: The ARN of the Application Load Balancer in the format:
             arn:aws:elasticloadbalancing:region:account-id:loadbalancer/app/name/id
-
-    Raises:
-        Exception: If no ALB is found with the specified name
-        LoadBalancerNotFoundException: If the load balancer name doesn't exist
-        Exception: For other AWS API errors or unexpected issues
+            or the error description
 
     Example:
         try:
@@ -182,26 +219,96 @@ async def get_application_load_balancer_arn_by_name(alb_name):
         - The AWS credentials must have elasticloadbalancing:DescribeLoadBalancers permission
         - Only returns the first matching ALB if multiple exist with the same name
     """
+    global global_elbv2_client
+    if elbv2_client is None:
+        if global_elbv2_client is None:
+            global_elbv2_client = get_elbv2_client()
+        elbv2_client = global_elbv2_client
 
-    # Create ELBv2 client
     try:
         # Describe load balancers with the specified name
-        response = elbv2_client.describe_load_balancers(
-            Names=[alb_name]
-        )
-        
+        response = elbv2_client.describe_load_balancers(Names=[alb_name])
+
         # Get the ARN from the first (and should be only) load balancer
         if response['LoadBalancers']:
             return response['LoadBalancers'][0]['LoadBalancerArn']
         else:
-            raise Exception(f"No ALB found with name: {alb_name}")
-            
+            return f'No ALB found with name: {alb_name}'
+
     except elbv2_client.exceptions.LoadBalancerNotFoundException:
-        raise Exception(f"Load balancer not found: {alb_name}")
+        return f'Load balancer not found: {alb_name}'
     except Exception as e:
-        print(f"Error getting ALB ARN: {str(e)}")
+        return f'Error getting ALB ARN: {str(e)}'
+
+
+@mcp.tool()
+async def create_ip_set(
+    name: str,
+    ip_addresses: List[str],
+    ip_version: str = 'IPV4',
+    description: Optional[str] = None,
+    scope: str = 'REGIONAL',
+    wafv2_client=None,
+) -> dict:
+    """Creates an IP set in AWS WAFv2.
+
+    Args:
+        name (str): Name of the IP set
+        ip_addresses (List[str]): List of IP addresses in CIDR notation
+        ip_version (str): IP address version (IPV4 or IPV6)
+        description (str, optional): Description for the IP set
+        scope (str): Scope of the IP set (REGIONAL or CLOUDFRONT)
+        wafv2_client (boto3.client): Override the client. For unit tests only
+
+    Returns:
+        dict: Response from the AWS WAF service containing the IP set details
+
+    Example:
+        ip_addresses = ['192.0.2.0/24', '198.51.100.0/24']
+        response = create_ip_set(
+            name='test-ipset',
+            ip_addresses=ip_addresses,
+            description='Block specific IP ranges'
+        )
+    """
+    # Init WAFv2 client
+    global global_wafv2_client
+    if wafv2_client is None:
+        if global_wafv2_client is None:
+            global_wafv2_client = get_wafv2_client()
+        wafv2_client = global_wafv2_client
+    try:
+        # Create the IP set
+        create_params = {
+            'Name': name,
+            'Scope': scope,
+            'IPAddressVersion': ip_version,
+            'Addresses': ip_addresses,
+        }
+
+        # Add description if provided
+        if description:
+            create_params['Description'] = description
+
+        response = wafv2_client.create_ip_set(**create_params)
+
+        print(f'Successfully created IP set: {name}')
+        return response
+
+    except wafv2_client.exceptions.WAFDuplicateItemException:
+        print(f'An IP set with the name {name} already exists')
+        raise
+    except wafv2_client.exceptions.WAFLimitsExceededException:
+        print('You have exceeded the maximum number of IP sets for your account')
+        raise
+    except wafv2_client.exceptions.WAFInvalidParameterException as e:
+        print(f'Invalid parameter: {str(e)}')
+        raise
+    except Exception as e:
+        print(f'Error creating IP set: {str(e)}')
         raise
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     # Initialize and run the server
     mcp.run(transport='stdio')

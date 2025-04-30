@@ -15,11 +15,10 @@ MCP server for creating firewall rules in AWS WAF
 ## Prerequisites
 
 1. Install `uv` from [Astral](https://docs.astral.sh/uv/getting-started/installation/) or the [GitHub README](https://github.com/astral-sh/uv#installation)
-2. Install Python using `uv python install 3.11`
+2. Install Python and dependencies using `uv python install 3.13` and `uv sync`
 3. Set up AWS credentials with access to AWS services
-   - You need an AWS account with appropriate permissions
-   - Configure AWS credentials with `aws configure` or environment variables
-   - Ensure your IAM role/user has permissions to create WAF ACLs and associate resources.
+   - You need an AWS account with appropriate permissions. Ensure your IAM role/user has permissions to create WAF ACLs and associate resources.
+   - Configure AWS credentials profile with `aws configure` or environment variables
 
 ## Installation
 
@@ -32,9 +31,9 @@ Here are some ways you can work with MCP across AWS, and we'll be adding support
             "command": "your-absolute-path/uv",
             "args": [
                 "--directory",
-                "your-absolute-path/mcp-waf",
+                "your-absolute-path/mcp/src/aws-waf-mcp-server/awslabs/aws_waf_mcp_server",
                 "run",
-                "waf.py"
+                "server.py"
             ],
             "env": {
                 "AWS_PROFILE": "your-aws-profile",
@@ -56,4 +55,10 @@ The MCP server uses the AWS profile and region specified in the `AWS_PROFILE` an
   "AWS_PROFILE": "your-aws-profile",
   "AWS_DEAFULT_REGION": "your-region"
 }
+```
+
+### Tests
+
+```bash
+uv run pytest -s
 ```
