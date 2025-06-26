@@ -41,6 +41,12 @@ MCP server for Terraform on AWS best practices, infrastructure as code patterns,
   - Pass variables and specify AWS regions
   - Get formatted command output for analysis
 
+- **Terragrunt Workflow Execution** - Run Terragrunt commands directly
+  - Initialize, plan, validate, apply, run-all and destroy operations
+  - Pass variables and specify AWS regions
+  - Configure terragrunt-config and and include/exclude paths flags
+  - Get formatted command output for analysis
+
 ## Tools and Resources
 
 - **Terraform Development Workflow**: Follow security-focused development process via `terraform://workflow_guide`
@@ -57,7 +63,9 @@ MCP server for Terraform on AWS best practices, infrastructure as code patterns,
 
 ## Installation
 
-Here are some ways you can work with MCP across AWS, and we'll be adding support to more products including Amazon Q Developer CLI soon: (e.g. for Amazon Q Developer CLI MCP, `~/.aws/amazonq/mcp.json`):
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/install-mcp?name=awslabs.terraform-mcp-server&config=eyJjb21tYW5kIjoidXZ4IGF3c2xhYnMudGVycmFmb3JtLW1jcC1zZXJ2ZXJAbGF0ZXN0IiwiZW52Ijp7IkZBU1RNQ1BfTE9HX0xFVkVMIjoiRVJST1IifSwiZGlzYWJsZWQiOmZhbHNlLCJhdXRvQXBwcm92ZSI6W119)
+
+Configure the MCP server in your MCP client configuration (e.g., for Amazon Q Developer CLI, edit `~/.aws/amazonq/mcp.json`):
 
 ```json
 {
@@ -75,7 +83,7 @@ Here are some ways you can work with MCP across AWS, and we'll be adding support
 }
 ```
 
-or docker after a succesful `docker build -t awslabs/terraform-mcp-server .`:
+or docker after a successful `docker build -t awslabs/terraform-mcp-server .`:
 
 ```json
   {

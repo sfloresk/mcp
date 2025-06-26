@@ -1,6 +1,6 @@
 [project]
 name = "awslabs.cost-analysis-mcp-server"
-version = "0.1.8"
+version = "1.0.2"
 description = "An AWS Labs Model Context Protocol (MCP) server for Cost Analysis of the AWS services"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,6 +12,7 @@ dependencies = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "typing-extensions>=4.8.0",
+    "loguru>=0.7.3",
 ]
 license = {text = "Apache-2.0"}
 license-files = ["LICENSE", "NOTICE" ]
@@ -110,7 +111,7 @@ update_changelog_on_bump = true
 packages = ["awslabs"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=awslabs.core_mcp_server --cov-report=term-missing"
+addopts = "--cov=awslabs.cost_analysis_mcp_server --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

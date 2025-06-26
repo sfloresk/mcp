@@ -1,16 +1,19 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
-# with the License. A copy of the License is located at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# or in the 'license' file accompanying this file. This file is distributed on an 'AS IS' BASIS, WITHOUT WARRANTIES
-# OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions
-# and limitations under the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 #FROM public.ecr.aws/sam/build-python3.10:1.137.1-20250411084548
-FROM public.ecr.aws/sam/build-python3.10@sha256:04cdbe84bec08d17d621192bc3f0a9e4a85a83f2ac99aa9241659dfac0d845ea AS uv
+FROM public.ecr.aws/sam/build-python3.10@sha256:d821662474d65f3cf2fc97dba2fa807a3adb580d02895fc4545527812550ea65 AS uv
 
 # Install the project into `/app`
 WORKDIR /app
@@ -27,11 +30,12 @@ ENV UV_PYTHON_PREFERENCE=only-system
 # Run without updating the uv.lock file like running with `--frozen`
 ENV UV_FROZEN=true
 
+# Copy the required files first
+COPY pyproject.toml uv.lock uv-requirements.txt ./
+
 # Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    pip install uv && \
+    pip install --require-hashes --requirement uv-requirements.txt && \
     uv sync --frozen --no-install-project --no-dev --no-editable
 
 # Then, add the rest of the project source code and install it
@@ -43,7 +47,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Make the directory just in case it doesn't exist
 RUN mkdir -p /root/.local
 
-FROM public.ecr.aws/sam/build-python3.10@sha256:04cdbe84bec08d17d621192bc3f0a9e4a85a83f2ac99aa9241659dfac0d845ea
+FROM public.ecr.aws/sam/build-python3.10@sha256:d821662474d65f3cf2fc97dba2fa807a3adb580d02895fc4545527812550ea65
 
 # Place executables in the environment at the front of the path and include other binaries
 ENV PATH="/app/.venv/bin:$PATH:/usr/sbin"

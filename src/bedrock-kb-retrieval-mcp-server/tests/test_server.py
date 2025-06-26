@@ -1,13 +1,16 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
-# with the License. A copy of the License is located at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-# or in the 'license' file accompanying this file. This file is distributed on an 'AS IS' BASIS, WITHOUT WARRANTIES
-# OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions
-# and limitations under the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Tests for the server module of the bedrock-kb-retrieval-mcp-server."""
 
@@ -20,7 +23,7 @@ from awslabs.bedrock_kb_retrieval_mcp_server.server import (
     query_knowledge_bases_tool,
 )
 from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 
 class TestMCPServer:
@@ -131,65 +134,16 @@ class TestQueryKnowledgeBasesTool:
 class TestMain:
     """Tests for the main function."""
 
-    @patch('awslabs.bedrock_kb_retrieval_mcp_server.server.argparse.ArgumentParser')
     @patch('awslabs.bedrock_kb_retrieval_mcp_server.server.mcp')
-    def test_main_default(self, mock_mcp, mock_argument_parser):
+    def test_main_default(self, mock_mcp):
         """Test the main function with default arguments."""
         # Set up the mock
-        mock_parser = MagicMock()
-        mock_args = MagicMock()
-        mock_args.sse = False
-        mock_parser.parse_args.return_value = mock_args
-        mock_argument_parser.return_value = mock_parser
 
         # Call the function
         main()
-
-        # Check that the parser was set up correctly
-        mock_argument_parser.assert_called_once_with(
-            description='A Model Context Protocol (MCP) server'
-        )
-        mock_parser.add_argument.assert_any_call(
-            '--sse', action='store_true', help='Use SSE transport'
-        )
-        mock_parser.add_argument.assert_any_call(
-            '--port', type=int, default=8888, help='Port to run the server on'
-        )
 
         # Check that mcp.run was called with the correct arguments
         mock_mcp.run.assert_called_once_with()
-
-    @patch('awslabs.bedrock_kb_retrieval_mcp_server.server.argparse.ArgumentParser')
-    @patch('awslabs.bedrock_kb_retrieval_mcp_server.server.mcp')
-    def test_main_with_sse(self, mock_mcp, mock_argument_parser):
-        """Test the main function with SSE transport."""
-        # Set up the mock
-        mock_parser = MagicMock()
-        mock_args = MagicMock()
-        mock_args.sse = True
-        mock_args.port = 9999
-        mock_parser.parse_args.return_value = mock_args
-        mock_argument_parser.return_value = mock_parser
-
-        # Call the function
-        main()
-
-        # Check that the parser was set up correctly
-        mock_argument_parser.assert_called_once_with(
-            description='A Model Context Protocol (MCP) server'
-        )
-        mock_parser.add_argument.assert_any_call(
-            '--sse', action='store_true', help='Use SSE transport'
-        )
-        mock_parser.add_argument.assert_any_call(
-            '--port', type=int, default=8888, help='Port to run the server on'
-        )
-
-        # Check that mcp.settings.port was set correctly
-        assert mock_mcp.settings.port == 9999
-
-        # Check that mcp.run was called with the correct arguments
-        mock_mcp.run.assert_called_once_with(transport='sse')
 
 
 class TestServerIntegration:

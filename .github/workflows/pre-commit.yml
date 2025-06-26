@@ -4,10 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
-permissions: read-all
+permissions: {}
 jobs:
   detect-precommit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       precommits: ${{ steps.find-precommit.outputs.precommits }}
     steps:
@@ -40,7 +42,10 @@ jobs:
       with:
         python-version-file: ${{ matrix.precommit }}/.python-version
     - run: |
-        python -m pip install pre-commit
+        echo "github.workspace=${{ github.workspace }}"
+        echo "env.GITHUB_WORKSPACE=${{ env.GITHUB_WORKSPACE }}"
+        echo "vars.GITHUB_WORKSPACE=${{ vars.GITHUB_WORKSPACE }}"
+        python -m pip install --require-hashes --requirement ${{ github.workspace }}/.github/workflows/pre-commit-requirements.txt
         python -m pip freeze --local
     - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 #v4.2.3
       with:

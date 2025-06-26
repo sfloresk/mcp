@@ -31,7 +31,6 @@ This document outlines the design guidelines and best practices for developing M
     - [Controlled Execution Environments](#controlled-execution-environments)
     - [Timeouts for Long-Running Operations](#timeouts-for-long-running-operations)
     - [Explicit Allowlists](#explicit-allowlists)
-    - [Server-Sent Events (SSE) Security Considerations](#server-sent-events-sse-security-considerations)
   - [Logging with Loguru](#logging-with-loguru)
     - [Logging Guidelines](#logging-guidelines)
   - [Authentication to AWS Services](#authentication-to-aws-services)
@@ -97,32 +96,20 @@ MCP servers should follow these guidelines for application entry points:
    - Handles command-line arguments
    - Sets up environment and logging
    - Initializes the MCP server
-   - Starts the server with appropriate transport
 
 Example:
 
 ```python
 def main():
     """Run the MCP server with CLI argument support."""
-    parser = argparse.ArgumentParser(description='A Model Context Protocol (MCP) server')
-    parser.add_argument('--sse', action='store_true', help='Use SSE transport')
-    parser.add_argument('--port', type=int, default=8888, help='Port to run the server on')
-
-    args = parser.parse_args()
-
-    # Run server with appropriate transport
-    if args.sse:
-        mcp.settings.port = args.port
-        mcp.run(transport='sse')
-    else:
-        mcp.run()
+    mcp.run()
 
 
 if __name__ == '__main__':
     main()
 ```
 
-3. **Package Entry Point**: Configure the entry point in `pyproject.toml`:
+1. **Package Entry Point**: Configure the entry point in `pyproject.toml`:
 
 ```toml
 [project.scripts]
@@ -183,14 +170,17 @@ Include standard license headers at the top of each source file:
 ```python
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
-# with the License. A copy of the License is located at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# or in the 'license' file accompanying this file. This file is distributed on an 'AS IS' BASIS, WITHOUT WARRANTIES
-# OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions
-# and limitations under the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ```
 
 ## Constants Management
@@ -467,6 +457,7 @@ async def knowledgebases_resource() -> str:
 ```
 
 Resource guidelines:
+
 1. Use a consistent URI pattern: `resource://name`
 2. Specify the MIME type for proper content handling
 3. Return data in a format that tools can easily consume
@@ -490,6 +481,7 @@ async def mcp_generate_image(
 ```
 
 Tool guidelines:
+
 1. Use descriptive tool names in `camelCase` or `snake_case` consistently
 2. Include the Context parameter for error reporting
 3. Use detailed Field descriptions for all parameters
@@ -796,36 +788,6 @@ Allowlist implementation best practices:
    - Document allowlists in code and external documentation
    - Explain the security model to users
    - Provide examples of permissible and non-permissible operations
-
-### Server-Sent Events (SSE) Security Considerations
-
-When implementing SSE transport in MCP servers, developers must be aware of potential DNS rebinding attacks:
-
-1. **DNS Rebinding Risk**:
-   - SSE connections can be vulnerable to DNS rebinding attacks
-   - Attackers can manipulate DNS responses to redirect connections to malicious servers
-   - This can lead to unauthorized access to local services
-
-2. **Mitigation Strategies**:
-   - Implement strict CORS policies
-   - Use secure cookie settings
-   - Validate Origin headers
-   - Consider implementing additional authentication layers
-
-3. **Additional Security Measures**:
-   - Implement rate limiting for SSE connections
-   - Use secure session management
-   - Monitor for unusual connection patterns
-   - Consider implementing connection timeouts
-   - Log security-relevant events
-
-4. **Documentation Requirements**:
-   - Clearly document SSE security considerations in README
-   - Provide configuration examples for secure deployment
-   - Include security best practices for SSE usage
-   - Document any known limitations or risks
-
-More information available [here](https://modelcontextprotocol.io/docs/concepts/transports#security-warning%3A-dns-rebinding-attacks)
 
 ## Logging with Loguru
 

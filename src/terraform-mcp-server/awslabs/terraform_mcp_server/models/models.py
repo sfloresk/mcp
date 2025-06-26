@@ -1,3 +1,17 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Literal, Optional
 
@@ -302,3 +316,66 @@ class SearchUserProvidedModuleResult(BaseModel):
     outputs: List[TerraformOutput] = Field([], description='Outputs provided by the module')
     readme_content: Optional[str] = Field(None, description='README content of the module')
     error_message: Optional[str] = Field(None, description='Error message if execution failed')
+
+
+class TerragruntExecutionRequest(BaseModel):
+    """Request model for Terragrunt command execution with parameters.
+
+    Attributes:
+        command: The Terragrunt command to execute (init, plan, validate, apply, destroy, etc.).
+        working_directory: Directory containing Terragrunt configuration files.
+        variables: Optional dictionary of Terraform variables to pass.
+        aws_region: Optional AWS region to use.
+        strip_ansi: Whether to strip ANSI color codes from command output.
+        include_dirs: Optional list of directories to include in a multi-module run.
+        exclude_dirs: Optional list of directories to exclude from a multi-module run.
+        run_all: Whether to run the command in all subdirectories with terragrunt.hcl files.
+    """
+
+    command: Literal['init', 'plan', 'validate', 'apply', 'destroy', 'output', 'run-all'] = Field(
+        ..., description='Terragrunt command to execute'
+    )
+    working_directory: str = Field(..., description='Directory containing Terragrunt files')
+    variables: Optional[Dict[str, str]] = Field(None, description='Terraform variables to pass')
+    aws_region: Optional[str] = Field(None, description='AWS region to use')
+    strip_ansi: bool = Field(True, description='Whether to strip ANSI color codes from output')
+    include_dirs: Optional[List[str]] = Field(
+        None, description='Directories to include in a multi-module run'
+    )
+    exclude_dirs: Optional[List[str]] = Field(
+        None, description='Directories to exclude from a multi-module run'
+    )
+    run_all: bool = Field(False, description='Run command on all modules in subdirectories')
+    terragrunt_config: Optional[str] = Field(
+        None, description='Path to a custom terragrunt config file (not valid with run-all)'
+    )
+
+
+class TerragruntExecutionResult(BaseModel):
+    """Result model for Terragrunt command execution.
+
+    Attributes:
+        command: The Terragrunt command that was executed.
+        status: Execution status (success/error).
+        return_code: The command's return code (0 for success).
+        stdout: Standard output from the Terragrunt command.
+        stderr: Standard error output from the Terragrunt command.
+        working_directory: Directory where the command was executed.
+        error_message: Optional error message if execution failed.
+        outputs: Dictionary of output values from Terragrunt (for apply command).
+        affected_dirs: List of directories affected by a run-all command.
+    """
+
+    command: str
+    status: Literal['success', 'error']
+    return_code: Optional[int] = None
+    stdout: Optional[str] = None
+    stderr: str = ''
+    working_directory: str
+    error_message: Optional[str] = None
+    outputs: Optional[Dict[str, Any]] = Field(
+        None, description='Terragrunt outputs (for apply or output command)'
+    )
+    affected_dirs: Optional[List[str]] = Field(
+        None, description='Directories affected by a run-all command'
+    )

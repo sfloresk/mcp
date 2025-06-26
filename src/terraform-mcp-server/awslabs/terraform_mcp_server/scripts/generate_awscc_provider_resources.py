@@ -1,3 +1,17 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Script to generate AWSCC provider resources markdown for the Terraform Expert MCP server.
 
 This script scrapes the Terraform AWSCC provider documentation using Playwright
@@ -317,7 +331,11 @@ async def fetch_awscc_provider_page():
 
             # Save HTML for debugging using tempfile for security
             with tempfile.NamedTemporaryFile(
-                prefix='terraform_awscc_debug_playwright_', suffix='.html', mode='w', delete=False
+                prefix='terraform_awscc_debug_playwright_',
+                suffix='.html',
+                mode='w',
+                encoding='utf-8',
+                delete=False,
             ) as temp_file:
                 temp_file.write(content)
                 debug_file_path = temp_file.name
@@ -1004,7 +1022,7 @@ async def main():
         args.output.parent.mkdir(parents=True, exist_ok=True)
 
         # Write markdown to output file
-        with open(args.output, 'w') as f:
+        with open(args.output, 'w', encoding='utf-8') as f:
             f.write('\n'.join(markdown))
 
         print(f'Successfully generated markdown file at: {args.output}')
