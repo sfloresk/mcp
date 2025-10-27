@@ -185,19 +185,22 @@ class TestErrorHandling:
 
             tools = CloudWatchLogsTools()
 
-            with pytest.raises(Exception) as exc_info:
-                await tools.execute_log_insights_query(
-                    mock_context,
-                    log_group_names=['test-group'],
-                    log_group_identifiers=None,
-                    start_time='2023-01-01T00:00:00+00:00',
-                    end_time='2023-01-01T01:00:00+00:00',
-                    query_string='fields @message',
-                    limit=10,
-                    max_timeout=30,
-                )
+            result = await tools.execute_log_insights_query(
+                mock_context,
+                log_group_names=['test-group'],
+                log_group_identifiers=None,
+                start_time='2023-01-01T00:00:00+00:00',
+                end_time='2023-01-01T01:00:00+00:00',
+                query_string='fields @message',
+                limit=10,
+                max_timeout=30,
+            )
 
-            assert 'Query API Error' in str(exc_info.value)
+            # Verify error response structure instead of exception
+            assert result['status'] == 'Error'
+            assert result['results'] == []
+            assert 'Query API Error' in result['message']
+            assert result['queryId'] == ''
             mock_context.error.assert_called_once()
 
     @pytest.mark.asyncio
@@ -212,10 +215,15 @@ class TestErrorHandling:
 
             tools = CloudWatchLogsTools()
 
-            with pytest.raises(Exception) as exc_info:
-                await tools.get_logs_insight_query_results(mock_context, query_id='test-query-id')
+            result = await tools.get_logs_insight_query_results(
+                mock_context, query_id='test-query-id'
+            )
 
-            assert 'Query Results API Error' in str(exc_info.value)
+            # Verify error response structure instead of exception
+            assert result['status'] == 'Error'
+            assert result['results'] == []
+            assert 'Query Results API Error' in result['message']
+            assert result['queryId'] == 'test-query-id'
             mock_context.error.assert_called_once()
 
     @pytest.mark.asyncio
@@ -296,6 +304,54 @@ class TestErrorHandling:
             assert result['queryId'] == 'test-query-id'
             assert result['status'] == 'Cancelled'
 
+    @pytest.mark.asyncio
+    async def test_poll_for_query_completion_unexpected_status(self, mock_context):
+        """Test polling with unexpected query status."""
+        with patch(
+            'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+        ) as mock_session:
+            mock_client = Mock()
+            mock_client.get_query_results.return_value = {
+                'queryId': 'test-query-id',
+                'status': 'UnknownStatus',  # Unexpected status
+                'results': [],
+            }
+            mock_session.return_value.client.return_value = mock_client
+            tools = CloudWatchLogsTools()
+            result = await tools._poll_for_query_completion(
+                mock_client, 'test-query-id', 30, mock_context
+            )
+            assert result['queryId'] == 'test-query-id'
+            assert result['status'] == 'UnknownStatus'
+            assert result['results'] == []
+
+    @pytest.mark.asyncio
+    async def test_poll_for_query_completion_polling_exception(self, mock_context):
+        """Test polling with exception during get_query_results."""
+        with patch(
+            'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+        ) as mock_session:
+            mock_client = Mock()
+            mock_client.get_query_results.side_effect = Exception('Network timeout during polling')
+            mock_session.return_value.client.return_value = mock_client
+            tools = CloudWatchLogsTools()
+
+            result = await tools._poll_for_query_completion(
+                mock_client, 'test-query-id', 30, mock_context
+            )
+
+            # Verify error response structure
+            assert result['queryId'] == 'test-query-id'
+            assert result['status'] == 'Error'
+            assert 'Network timeout during polling' in result['message']
+            assert result['results'] == []
+
+            # Verify context error was called
+            mock_context.error.assert_called_once()
+            error_call_args = mock_context.error.call_args[0][0]
+            assert 'Error during query polling' in error_call_args
+            assert 'Network timeout during polling' in error_call_args
+
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
@@ -308,14 +364,13 @@ class TestEdgeCases:
             # Response with minimal fields
             raw_response = {
                 'status': 'Complete',
-                # Missing queryId, statistics, results
+                # Missing queryId, results
             }
 
             processed = tools._process_query_results(raw_response, 'fallback-id')
 
             assert processed['queryId'] == 'fallback-id'
             assert processed['status'] == 'Complete'
-            assert processed['statistics'] == {}
             assert processed['results'] == []
 
     def test_aws_profile_initialization(self):
@@ -386,3 +441,151 @@ class TestEdgeCases:
             assert params['logGroupNames'] is None
             assert params['logGroupIdentifiers'] == ['arn:test']
             assert params['limit'] is None
+
+
+class TestRegionHandling:
+    """Test region parameter handling across tools."""
+
+    def test_get_logs_client_region_parameter(self):
+        """Test that _get_logs_client creates client with correct region."""
+        with patch(
+            'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+        ) as mock_session:
+            mock_client = Mock()
+            mock_session.return_value.client.return_value = mock_client
+
+            tools = CloudWatchLogsTools()
+            result = tools._get_logs_client('ap-northeast-1')
+
+            # Verify session was created with correct region
+            mock_session.assert_called_with(region_name='ap-northeast-1')
+            mock_session.return_value.client.assert_called_with(
+                'logs', config=mock_session.return_value.client.call_args[1]['config']
+            )
+            assert result == mock_client
+
+    def test_get_logs_client_with_aws_profile(self):
+        """Test _get_logs_client with AWS_PROFILE environment variable."""
+        with patch.dict('os.environ', {'AWS_PROFILE': 'test-profile'}):
+            with patch(
+                'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+            ) as mock_session:
+                mock_client = Mock()
+                mock_session.return_value.client.return_value = mock_client
+
+                tools = CloudWatchLogsTools()
+                result = tools._get_logs_client('ca-central-1')
+
+                # Verify session was created with profile and region
+                mock_session.assert_called_with(
+                    profile_name='test-profile', region_name='ca-central-1'
+                )
+                assert result == mock_client
+
+    @pytest.mark.asyncio
+    async def test_execute_log_insights_query_region_parameter(self, mock_context):
+        """Test that execute_log_insights_query uses correct region for client creation."""
+        with patch(
+            'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+        ) as mock_session:
+            mock_client = Mock()
+            mock_client.start_query.return_value = {'queryId': 'test-query-id'}
+            mock_client.get_query_results.return_value = {
+                'status': 'Complete',
+                'results': [],
+                'statistics': {},
+            }
+            mock_session.return_value.client.return_value = mock_client
+
+            tools = CloudWatchLogsTools()
+
+            # Mock _get_logs_client to capture the region parameter
+            with patch.object(
+                tools, '_get_logs_client', return_value=mock_client
+            ) as mock_get_client:
+                await tools.execute_log_insights_query(
+                    mock_context,
+                    log_group_names=['test-group'],
+                    log_group_identifiers=None,
+                    start_time='2023-01-01T00:00:00+00:00',
+                    end_time='2023-01-01T01:00:00+00:00',
+                    query_string='fields @message',
+                    region='ap-southeast-2',
+                )
+
+                # Verify _get_logs_client was called with correct region
+                mock_get_client.assert_called_once_with('ap-southeast-2')
+
+    @pytest.mark.asyncio
+    async def test_get_logs_insight_query_results_region_parameter(self, mock_context):
+        """Test that get_logs_insight_query_results uses correct region for client creation."""
+        with patch(
+            'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+        ) as mock_session:
+            mock_client = Mock()
+            mock_client.get_query_results.return_value = {
+                'status': 'Complete',
+                'results': [],
+                'statistics': {},
+            }
+            mock_session.return_value.client.return_value = mock_client
+
+            tools = CloudWatchLogsTools()
+
+            # Mock _get_logs_client to capture the region parameter
+            with patch.object(
+                tools, '_get_logs_client', return_value=mock_client
+            ) as mock_get_client:
+                await tools.get_logs_insight_query_results(
+                    mock_context, query_id='test-query-id', region='eu-central-1'
+                )
+
+                # Verify _get_logs_client was called with correct region
+                mock_get_client.assert_called_once_with('eu-central-1')
+
+    @pytest.mark.asyncio
+    async def test_cancel_logs_insight_query_region_parameter(self, mock_context):
+        """Test that cancel_logs_insight_query uses correct region for client creation."""
+        with patch(
+            'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+        ) as mock_session:
+            mock_client = Mock()
+            mock_client.stop_query.return_value = {'success': True}
+            mock_session.return_value.client.return_value = mock_client
+
+            tools = CloudWatchLogsTools()
+
+            # Mock _get_logs_client to capture the region parameter
+            with patch.object(
+                tools, '_get_logs_client', return_value=mock_client
+            ) as mock_get_client:
+                await tools.cancel_logs_insight_query(
+                    mock_context, query_id='test-query-id', region='sa-east-1'
+                )
+
+                # Verify _get_logs_client was called with correct region
+                mock_get_client.assert_called_once_with('sa-east-1')
+
+    @pytest.mark.asyncio
+    async def test_describe_log_groups_region_parameter(self, mock_context):
+        """Test that describe_log_groups uses correct region for client creation."""
+        with patch(
+            'awslabs.cloudwatch_mcp_server.cloudwatch_logs.tools.boto3.Session'
+        ) as mock_session:
+            mock_client = Mock()
+            mock_paginator = Mock()
+            mock_paginator.paginate.return_value = [{'logGroups': []}]
+            mock_client.get_paginator.return_value = mock_paginator
+            mock_client.describe_query_definitions.return_value = {'queryDefinitions': []}
+            mock_session.return_value.client.return_value = mock_client
+
+            tools = CloudWatchLogsTools()
+
+            # Mock _get_logs_client to capture the region parameter
+            with patch.object(
+                tools, '_get_logs_client', return_value=mock_client
+            ) as mock_get_client:
+                await tools.describe_log_groups(mock_context, region='us-west-1')
+
+                # Verify _get_logs_client was called with correct region
+                mock_get_client.assert_called_once_with('us-west-1')

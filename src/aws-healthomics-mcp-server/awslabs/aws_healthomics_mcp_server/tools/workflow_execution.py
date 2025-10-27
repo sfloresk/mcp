@@ -15,11 +15,9 @@
 """Workflow execution tools for the AWS HealthOmics MCP server."""
 
 import botocore.exceptions
-import os
 from awslabs.aws_healthomics_mcp_server.consts import (
     CACHE_BEHAVIORS,
     DEFAULT_MAX_RESULTS,
-    DEFAULT_REGION,
     ERROR_INVALID_CACHE_BEHAVIOR,
     ERROR_INVALID_RUN_STATUS,
     ERROR_INVALID_STORAGE_TYPE,
@@ -28,7 +26,7 @@ from awslabs.aws_healthomics_mcp_server.consts import (
     STORAGE_TYPE_STATIC,
     STORAGE_TYPES,
 )
-from awslabs.aws_healthomics_mcp_server.utils.aws_utils import get_aws_session
+from awslabs.aws_healthomics_mcp_server.utils.aws_utils import get_omics_client
 from awslabs.aws_healthomics_mcp_server.utils.s3_utils import ensure_s3_uri_ends_with_slash
 from datetime import datetime
 from loguru import logger
@@ -115,21 +113,6 @@ def filter_runs_by_creation_time(
     return filtered_runs
 
 
-def get_omics_client():
-    """Get an AWS HealthOmics client.
-
-    Returns:
-        boto3.client: Configured HealthOmics client
-    """
-    region = os.environ.get('AWS_REGION', DEFAULT_REGION)
-    session = get_aws_session(region)
-    try:
-        return session.client('omics')
-    except Exception as e:
-        logger.error(f'Failed to create HealthOmics client: {str(e)}')
-        raise
-
-
 async def start_run(
     ctx: Context,
     workflow_id: str = Field(
@@ -200,8 +183,7 @@ async def start_run(
     Returns:
         Dictionary containing the run information
     """
-    client = get_omics_client()
-
+    # Validate parameters first, before creating client
     # Validate storage type
     if storage_type not in STORAGE_TYPES:
         error_message = ERROR_INVALID_STORAGE_TYPE.format(STORAGE_TYPES)
@@ -223,6 +205,13 @@ async def start_run(
         await ctx.error(error_message)
         raise ValueError(error_message)
 
+    # Validate that cache_behavior requires cache_id
+    if cache_behavior and not cache_id:
+        error_message = 'cache_behavior requires cache_id to be provided'
+        logger.error(error_message)
+        await ctx.error(error_message)
+        raise ValueError(error_message)
+
     # Ensure output URI ends with a slash
     try:
         output_uri = ensure_s3_uri_ends_with_slash(output_uri)
@@ -231,6 +220,8 @@ async def start_run(
         logger.error(error_message)
         await ctx.error(error_message)
         raise
+
+    client = get_omics_client()
 
     params = {
         'workflowId': workflow_id,
@@ -315,9 +306,7 @@ async def list_runs(
     Returns:
         Dictionary containing run information and next token if available
     """
-    client = get_omics_client()
-
-    # Validate status
+    # Validate all parameters first, before creating client
     if status and status not in RUN_STATUSES:
         error_message = ERROR_INVALID_RUN_STATUS.format(RUN_STATUSES)
         logger.error(error_message)
@@ -342,6 +331,8 @@ async def list_runs(
             logger.error(error_message)
             await ctx.error(error_message)
             raise ValueError(error_message)
+
+    client = get_omics_client()
 
     # Determine if we need client-side filtering
     needs_filtering = created_after or created_before
@@ -637,7 +628,7 @@ async def get_run_task(
         task_id: ID of the task
 
     Returns:
-        Dictionary containing task details
+        Dictionary containing task details including imageDetails when available
     """
     client = get_omics_client()
 
@@ -664,7 +655,15 @@ async def get_run_task(
         if 'logStream' in response:
             result['logStream'] = response['logStream']
 
+        if 'imageDetails' in response:
+            result['imageDetails'] = response['imageDetails']
+
         return result
+    except botocore.exceptions.ClientError as e:
+        error_message = f'AWS error getting task {task_id} for run {run_id}: {str(e)}'
+        logger.error(error_message)
+        await ctx.error(error_message)
+        raise
     except botocore.exceptions.BotoCoreError as e:
         error_message = f'AWS error getting task {task_id} for run {run_id}: {str(e)}'
         logger.error(error_message)

@@ -209,6 +209,7 @@ class GenerateTemplateResponse(CallToolResult):
     """Response model for generate operation of manage_eks_stacks tool."""
 
     template_path: str = Field(..., description='Path to the generated template')
+    content: list = Field(..., description='Content blocks for the response')
 
 
 class DeployStackResponse(CallToolResult):
@@ -217,6 +218,7 @@ class DeployStackResponse(CallToolResult):
     stack_name: str = Field(..., description='Name of the CloudFormation stack')
     stack_arn: str = Field(..., description='ARN of the CloudFormation stack')
     cluster_name: str = Field(..., description='Name of the EKS cluster')
+    content: list = Field(..., description='Content blocks for the response')
 
 
 class DescribeStackResponse(CallToolResult):
@@ -228,6 +230,7 @@ class DescribeStackResponse(CallToolResult):
     creation_time: str = Field(..., description='Creation time of the stack')
     stack_status: str = Field(..., description='Current status of the stack')
     outputs: Dict[str, str] = Field(..., description='Stack outputs')
+    content: list = Field(..., description='Content blocks for the response')
 
 
 class DeleteStackResponse(CallToolResult):
@@ -236,6 +239,7 @@ class DeleteStackResponse(CallToolResult):
     stack_name: str = Field(..., description='Name of the deleted CloudFormation stack')
     stack_id: str = Field(..., description='ID of the deleted CloudFormation stack')
     cluster_name: str = Field(..., description='Name of the EKS cluster')
+    content: list = Field(..., description='Content blocks for the response')
 
 
 class PolicySummary(BaseModel):
@@ -283,3 +287,81 @@ class MetricsGuidanceResponse(CallToolResult):
         ..., description='Resource type (cluster, node, pod, namespace, service)'
     )
     metrics: List[Dict[str, Any]] = Field(..., description='List of metrics with their details')
+
+
+class EksVpcConfigResponse(CallToolResult):
+    """Response model for get_eks_vpc_config tool.
+
+    This model contains comprehensive VPC configuration details for any EKS cluster,
+    including CIDR blocks and route tables which are essential for understanding
+    network connectivity. For hybrid node setups, it also automatically identifies
+    and includes remote node and pod CIDR configurations.
+    """
+
+    vpc_id: str = Field(..., description='ID of the VPC')
+    cidr_block: str = Field(..., description='Primary CIDR block of the VPC')
+    additional_cidr_blocks: List[str] = Field(
+        [], description='Additional CIDR blocks associated with the VPC'
+    )
+    routes: List[Dict[str, Any]] = Field(
+        ..., description='List of route entries in the main route table'
+    )
+    remote_node_cidr_blocks: List[str] = Field(
+        [], description='CIDR blocks configured for remote node access (for hybrid setups)'
+    )
+    remote_pod_cidr_blocks: List[str] = Field(
+        [], description='CIDR blocks configured for remote pod access (for hybrid setups)'
+    )
+    subnets: List[Dict[str, Any]] = Field(
+        [], description='List of subnets in the VPC with their configurations'
+    )
+    cluster_name: str = Field(..., description='Name of the EKS cluster')
+
+
+class EksInsightStatus(BaseModel):
+    """Status of an EKS insight with status code and reason."""
+
+    status: str = Field(..., description='Status of the insight (e.g., PASSING, FAILING, UNKNOWN)')
+    reason: str = Field(..., description='Explanation of the current status')
+
+
+class EksInsightItem(BaseModel):
+    """Model for a single EKS insight item."""
+
+    id: str = Field(..., description='Unique identifier of the insight')
+    name: str = Field(..., description='Name of the insight')
+    category: str = Field(
+        ..., description='Category of the insight (e.g., CONFIGURATION, UPGRADE_READINESS)'
+    )
+    kubernetes_version: Optional[str] = Field(
+        None, description='Target Kubernetes version for upgrade insights'
+    )
+    last_refresh_time: float = Field(
+        ..., description='Timestamp when the insight was last refreshed'
+    )
+    last_transition_time: float = Field(
+        ..., description='Timestamp when the insight last changed status'
+    )
+    description: str = Field(..., description='Description of what the insight checks')
+    insight_status: EksInsightStatus = Field(..., description='Current status of the insight')
+    recommendation: Optional[str] = Field(
+        None, description='Recommendation for addressing the insight'
+    )
+    additional_info: Optional[Dict[str, str]] = Field(
+        None, description='Additional information links'
+    )
+    resources: Optional[List[str]] = Field(None, description='Resources involved in the insight')
+    category_specific_summary: Optional[Dict[str, Any]] = Field(
+        None, description='Additional category-specific details'
+    )
+
+
+class EksInsightsResponse(CallToolResult):
+    """Response model for get_eks_insights tool."""
+
+    cluster_name: str = Field(..., description='Name of the EKS cluster')
+    insights: List[EksInsightItem] = Field(..., description='List of insights')
+    next_token: Optional[str] = Field(None, description='Token for pagination')
+    detail_mode: bool = Field(
+        False, description='Whether the response contains detailed insight information'
+    )

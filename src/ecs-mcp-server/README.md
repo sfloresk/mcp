@@ -17,12 +17,26 @@ An MCP server for containerizing applications, deploying applications to Amazon 
 - **Security Best Practices**: Implement AWS security best practices for container deployments
 - **Resource Management**: List and explore ECS resources such as task definitions, services, clusters, and tasks
 - **ECR Integration**: View repositories and container images in Amazon ECR
+- **AWS Knowledge Integration**: Access up-to-date AWS documentation through the integrated AWS Knowledge MCP Server proxy which includes knowledge on ECS and new features released that models may not be aware of
 
 Customers can use the `containerize_app` tool to help them containerize their applications with best practices and deploy them to Amazon ECS. The `create_ecs_infrastructure` tool automates infrastructure deployment using CloudFormation, while `get_deployment_status` returns the status of deployments and provide the URL of the set up Application Load Balancer. When resources are no longer needed, the `delete_ecs_infrastructure` tool allows for easy cleanup and removal of all deployed components.
 
 Customers can list and view their ECS resources (clusters, services, tasks, task definitions) and access their ECR resources (container images) using the `ecs_resource_management` tool. When running into ECS deployment issues, they can use the `ecs_troubleshooting_tool` to diagnose and resolve common problems.
 
 ## Installation
+
+### Prerequisites
+
+Before installing the ECS MCP Server, ensure you have the following prerequisites installed:
+
+1. **Docker or Finch**: Required for containerization and local testing
+   - [Docker](https://docs.docker.com/get-docker/) for container management
+   - [Finch](https://github.com/runfinch/finch) as a Docker alternative
+
+2. **UV**: Required for package management and running MCP servers
+   - Install `uv` from [Astral](https://docs.astral.sh/uv/getting-started/installation/)
+
+### Installation Steps
 
 ```bash
 # Install using uv
@@ -41,6 +55,8 @@ git clone https://github.com/awslabs/mcp.git
 # Run the server directly using uv
 uv --directory /path/to/ecs-mcp-server/src/ecs-mcp-server/awslabs/ecs_mcp_server run main.py
 ```
+
+To setup your preferred MCP client (ie. Amazon Q Developer CLI, Cline, Cursor, VS Code, etc.) with the ECS MCP Server, proceed to the [Configuration](#configuration) section.
 
 ## Usage Environments
 
@@ -71,6 +87,9 @@ The following operations are read-only and relatively safe for production enviro
 | `ecs_troubleshooting_tool` | `fetch_service_events` | ✅ Safe - Read-only |
 | `ecs_troubleshooting_tool` | `get_ecs_troubleshooting_guidance` | ✅ Safe - Read-only |
 | `get_deployment_status` | Status checking | ✅ Safe - Read-only |
+| `aws_knowledge_aws___search_documentation` | AWS documentation search | ✅ Safe - Read-only |
+| `aws_knowledge_aws___read_documentation` | AWS documentation reading | ✅ Safe - Read-only |
+| `aws_knowledge_aws___recommend` | AWS documentation recommendations | ✅ Safe - Read-only |
 
 The following operations modify resources and should be used with extreme caution in production:
 
@@ -104,7 +123,9 @@ Avoid using ECS MCP Server in production for:
 
 ## Configuration
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/install-mcp?name=awslabs.ecs-mcp-server&config=eyJjb21tYW5kIjoidXZ4IC0tZnJvbSBhd3NsYWJzLWVjcy1tY3Atc2VydmVyIGVjcy1tY3Atc2VydmVyIiwiZW52Ijp7IkFXU19QUk9GSUxFIjoieW91ci1hd3MtcHJvZmlsZSIsIkFXU19SRUdJT04iOiJ5b3VyLWF3cy1yZWdpb24iLCJGQVNUTUNQX0xPR19MRVZFTCI6IkVSUk9SIiwiRkFTVE1DUF9MT0dfRklMRSI6Ii9wYXRoL3RvL2Vjcy1tY3Atc2VydmVyLmxvZyIsIkFMTE9XX1dSSVRFIjoiZmFsc2UiLCJBTExPV19TRU5TSVRJVkVfREFUQSI6ImZhbHNlIn19)
+| Cursor | VS Code |
+|:------:|:-------:|
+| [![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/en/install-mcp?name=awslabs.ecs-mcp-server&config=eyJjb21tYW5kIjoidXZ4IC0tZnJvbSBhd3NsYWJzLWVjcy1tY3Atc2VydmVyIGVjcy1tY3Atc2VydmVyIiwiZW52Ijp7IkFXU19QUk9GSUxFIjoieW91ci1hd3MtcHJvZmlsZSIsIkFXU19SRUdJT04iOiJ5b3VyLWF3cy1yZWdpb24iLCJGQVNUTUNQX0xPR19MRVZFTCI6IkVSUk9SIiwiRkFTVE1DUF9MT0dfRklMRSI6Ii9wYXRoL3RvL2Vjcy1tY3Atc2VydmVyLmxvZyIsIkFMTE9XX1dSSVRFIjoiZmFsc2UiLCJBTExPV19TRU5TSVRJVkVfREFUQSI6ImZhbHNlIn19) | [![Install on VS Code](https://img.shields.io/badge/Install_on-VS_Code-FF9900?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ECS%20MCP%20Server&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22awslabs-ecs-mcp-server%22%2C%22ecs-mcp-server%22%5D%2C%22env%22%3A%7B%22AWS_PROFILE%22%3A%22your-aws-profile%22%2C%22AWS_REGION%22%3A%22your-aws-region%22%2C%22FASTMCP_LOG_LEVEL%22%3A%22ERROR%22%2C%22FASTMCP_LOG_FILE%22%3A%22%2Fpath%2Fto%2Fecs-mcp-server.log%22%2C%22ALLOW_WRITE%22%3A%22false%22%2C%22ALLOW_SENSITIVE_DATA%22%3A%22false%22%7D%7D) |
 
 Add the ECS MCP Server to your MCP client configuration:
 
@@ -126,6 +147,38 @@ Add the ECS MCP Server to your MCP client configuration:
   }
 }
 ```
+### Windows Installation
+
+For Windows users, the MCP server configuration format is slightly different:
+
+```json
+{
+  "mcpServers": {
+    "awslabs.ecs-mcp-server": {
+      "disabled": false,
+      "timeout": 60,
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "awslabs.ecs-mcp-server@latest",
+        "ecs-mcp-server.exe"
+      ],
+     "env": {
+        "AWS_PROFILE": "your-aws-profile", // Optional - uses your local AWS configuration if not specified
+        "AWS_REGION": "your-aws-region", // Optional - uses your local AWS configuration if not specified
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "FASTMCP_LOG_FILE": "/path/to/ecs-mcp-server.log",
+        "ALLOW_WRITE": "false",
+        "ALLOW_SENSITIVE_DATA": "false"
+      }
+    }
+  }
+}
+```
+
 
 If running from a local repository, configure the MCP client like this:
 
@@ -151,6 +204,39 @@ If running from a local repository, configure the MCP client like this:
     }
   }
 }
+```
+
+## Updating the MCP Server
+
+The ECS MCP Server is regularly updated with new features, bug fixes, and improvements. Here's how to get the latest updates:
+
+### Automatic Updates (Default Behavior)
+
+If you installed via PyPI (recommended), updates are automatic:
+
+- **PyPI Installation**: The MCP client automatically downloads the latest version when the server is restarted
+- **No action required**: Simply restart your MCP client to get the latest updates
+
+### Manual Updates
+
+If you want to manually update to ensure you have the latest version:
+
+```bash
+uv pip install --upgrade awslabs.ecs-mcp-server
+```
+
+### Local Repository Updates
+
+If you're running from a cloned repository, update by pulling the latest changes:
+
+```bash
+# Navigate to your cloned repository
+cd /path/to/mcp
+
+# Pull the latest changes
+git pull origin main
+
+# The MCP server will automatically use the updated code on next restart
 ```
 
 ## Security Controls
@@ -190,7 +276,7 @@ We strongly recommend creating dedicated IAM roles with least-privilege permissi
 3. **Use scoped-down resource policies** whenever possible
 4. **Apply a permission boundary** to limit the maximum permissions
 
-For detailed example IAM policies tailored for different ECS MCP Server use cases (read-only monitoring, troubleshooting, deployment, and service-specific access), see [EXAMPLE_IAM_POLICIES.md](EXAMPLE_IAM_POLICIES.md).
+For detailed example IAM policies tailored for different ECS MCP Server use cases (read-only monitoring, troubleshooting, deployment, and service-specific access), see [EXAMPLE_IAM_POLICIES.md](https://github.com/awslabs/mcp/blob/main/src/ecs-mcp-server/EXAMPLE_IAM_POLICIES.md).
 
 
 ## MCP Tools
@@ -249,6 +335,18 @@ This tool provides comprehensive access to Amazon ECS resources to help you moni
 
 The resource management tool enforces permission checks for write operations. Operations that modify resources require the ALLOW_WRITE environment variable to be set to true.
 
+### AWS Documentation Tools
+
+The ECS MCP Server integrates with the [AWS Knowledge MCP Server](https://github.com/awslabs/mcp/tree/main/src/aws-knowledge-mcp-server) to provide access to up-to-date AWS documentation, including ECS-specific knowledge about new features recently launched that models may not be aware of.
+
+Note: these tools are duplicative if you have the AWS Knowledge MCP Server already configured in your MCP client. For the below knowledge tools, the ECS MCP Server adds extra guidance to the tool descriptions to help LLMs use the tools for ECS contexts.
+
+- **aws_knowledge_aws___search_documentation**: Search across all AWS documentation including the latest AWS docs, API references, Blogs posts, Architectural references, and Well-Architected best practices.
+
+- **aws_knowledge_aws___read_documentation**: Fetch and convert AWS documentation pages to markdown format.
+
+- **aws_knowledge_aws___recommend**: Get content recommendations for AWS documentation pages.
+
 ## Example Prompts
 
 ### Containerization and Deployment
@@ -280,6 +378,12 @@ The resource management tool enforces permission checks for write operations. Op
 - "Delete an unused task definition"
 - "Run a task in my cluster"
 - "Stop a running task"
+
+### AWS Documentation and Knowledge
+
+- "What are the best practices for ECS deployments?"
+- "How do I set up blue-green deployments in ECS?"
+- "Get recommendations for ECS security best practices"
 
 ## Requirements
 
